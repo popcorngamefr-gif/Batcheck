@@ -1,8 +1,33 @@
-# Dependances OPTIONNELLES selon ce que tu veux lire.
-# Le coeur + le serveur + l'UI marchent sans rien (lecture de la machine hote).
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.Python
 
-# Pour lire les iPhone / iPad branches en USB :
-pymobiledevice3>=4.0.0
+# --- Environnements virtuels ---
+.venv/
+venv/
+env/
+ENV/
 
-# Pour Android : pas de paquet Python, il faut le binaire `adb`
-#   (Android platform-tools) installe et present dans le PATH.
+# --- Outils / IDE ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Sensible : ne JAMAIS committer ---
+# pairing records iOS et logs d'appareils (contiennent des identifiants)
+*.plist
+pairing_records/
+*.sysdiagnose
+sysdiagnose*/
+*.tar.gz
+# sorties de scan locales eventuelles
+scan_*.json
+*.log
