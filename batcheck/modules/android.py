@@ -26,7 +26,7 @@ _ADB_TIMEOUT = 10
 def read() -> list[DeviceReading]:
     if shutil.which("adb") is None:
         placeholder = DeviceReading(
-            device_id="android:unavailable", name="Module Android", kind="phone_android",
+            device_id="android:status", name="Android", kind="module_status",
             transport="usb", source_module="android",
         )
         placeholder.notes.append(
@@ -37,7 +37,15 @@ def read() -> list[DeviceReading]:
 
     serials = _list_devices()
     if not serials:
-        return []  # rien de branche/autorise : normal, on reste silencieux
+        placeholder = DeviceReading(
+            device_id="android:status", name="Android", kind="module_status",
+            transport="usb", source_module="android",
+        )
+        placeholder.notes.append(
+            "aucun Android autorise. Branche le telephone, active le debogage "
+            "USB et accepte l'autorisation a l'ecran."
+        )
+        return [placeholder]
 
     return [_read_one(serial) for serial in serials]
 

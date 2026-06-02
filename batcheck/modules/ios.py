@@ -18,6 +18,8 @@ accepte "Faire confiance a cet ordinateur" sur le telephone.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 from typing import Optional
 
 from batcheck.core import DeviceReading
@@ -28,36 +30,58 @@ _MISSING_DEP_NOTE = (
 )
 
 
+def _resolve(value):
+    """
+    pymobiledevice3 v4+ expose certaines fonctions en asynchrone : elles
+    renvoient une coroutine. On la deroule ici pour rester compatible avec
+    les versions sync ET async, sans planter.
+    """
+    if inspect.iscoroutine(value):
+        return asyncio.run(value)
+    return value
+
+
+def _status(message: str, *, is_error: bool = False) -> DeviceReading:
+    """Tuile d'etat du module (pas un appareil reel). Affichee calmement par l'UI."""
+    r = DeviceReading(
+        device_id="ios:status", name="iOS", kind="module_status",
+        transport="usb", source_module="ios",
+    )
+    (r.errors if is_error else r.notes).append(message)
+    return r
+
+
 def read(deep: bool = False) -> list[DeviceReading]:
     """
     deep=False : lecture live uniquement (rapide).
     deep=True  : tente aussi cycles + sante via sysdiagnose (lent, plusieurs minutes).
+
+    Cette fonction ne leve JAMAIS : toute panne devient une tuile d'etat calme,
+    pour ne pas afficher d'erreur rouge alarmante quand rien n'est branche.
     """
     try:
         from pymobiledevice3.usbmux import list_devices
     except Exception:  # noqa: BLE001
-        # Pas de dependance : on renvoie une lecture "vide mais honnete" plutot que rien.
-        placeholder = DeviceReading(
-            device_id="ios:unavailable", name="Module iOS", kind="phone_ios",
-            transport="usb", source_module="ios",
-        )
-        placeholder.notes.append(_MISSING_DEP_NOTE)
-        return [placeholder]
+        return [_status(_MISSING_DEP_NOTE)]
 
-    readings: list[DeviceReading] = []
     try:
-        devices = list_devices()
+        devices = _resolve(list_devices())
     except Exception as exc:  # noqa: BLE001
-        placeholder = DeviceReading(
-            device_id="ios:error", name="Module iOS", kind="phone_ios",
-            transport="usb", source_module="ios",
-        )
-        placeholder.errors.append(f"usbmux indisponible (usbmuxd lance ?) : {exc}")
-        return [placeholder]
+        return [_status(f"usbmux indisponible (le service est-il lance ?) : {exc}",
+                        is_error=True)]
+
+    # Coroutine deja deroulee ; on s'assure que c'est bien iterable.
+    try:
+        devices = list(devices) if devices else []
+    except TypeError:
+        devices = []
 
     if not devices:
-        return []  # aucun iDevice branche : silence, c'est normal
+        # Aucun iPhone/iPad branche : on l'indique calmement plutot que silence total.
+        return [_status("aucun iPhone ou iPad detecte. Branche l'appareil et "
+                        "accepte 'Faire confiance a cet ordinateur'.")]
 
+    readings: list[DeviceReading] = []
     for dev in devices:
         udid = getattr(dev, "serial", None) or getattr(dev, "udid", "inconnu")
         readings.append(_read_one(udid, deep=deep))
@@ -78,8 +102,8 @@ def _read_one(udid: str, deep: bool) -> DeviceReading:
         return r
 
     try:
-        lockdown = create_using_usbmux(serial=udid)
-        device_name = lockdown.get_value(domain=None, key="DeviceName")
+        lockdown = _resolve(create_using_usbmux(serial=udid))
+        device_name = _resolve(lockdown.get_value(domain=None, key="DeviceName"))
         if device_name:
             r.name = str(device_name)
     except Exception as exc:  # noqa: BLE001
@@ -92,7 +116,7 @@ def _read_one(udid: str, deep: bool) -> DeviceReading:
     # ---- Canal 1 : LIVE via IORegistry IOPMPowerSource ----
     try:
         diag = DiagnosticsService(lockdown)
-        battery = diag.get_battery() or {}
+        battery = _resolve(diag.get_battery()) or {}
         _map_live_fields(r, battery)
     except Exception as exc:  # noqa: BLE001
         r.errors.append(f"lecture live (diagnostics) echouee : {exc}")

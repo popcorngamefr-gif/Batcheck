@@ -1,357 +1,128 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>batcheck · console</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080a0e'/%3E%3Crect x='6' y='10' width='17' height='12' rx='2.5' fill='none' stroke='%235ef38c' stroke-width='2'/%3E%3Crect x='24.5' y='13.5' width='2.5' height='5' rx='1' fill='%235ef38c'/%3E%3Crect x='8.5' y='12.5' width='8' height='7' rx='1' fill='%235ef38c'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Syne:wght@600;800&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#080a0e; --panel:#0e1117; --panel-2:#11151d;
-    --line:#1d242f; --line-soft:#161c25;
-    --ink:#e7edf3; --ink-dim:#8290a0; --ink-faint:#4a5560;
-    --phosphor:#5ef38c; --phosphor-deep:#1f7a47;
-    --amber:#f0a830; --red:#ff5d5d; --cyan:#5ed0f3;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:"JetBrains Mono",ui-monospace,monospace;
-    font-size:13.5px; line-height:1.5; -webkit-font-smoothing:antialiased;
-    background-image:
-      radial-gradient(900px 500px at 85% -10%, rgba(94,243,140,.07), transparent 60%),
-      radial-gradient(700px 400px at 5% 110%, rgba(94,208,243,.05), transparent 60%);
-    min-height:100%;
-  }
-  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;opacity:.035;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
-  .wrap{max-width:1080px;margin:0 auto;padding:32px 22px 80px}
+# batcheck
 
-  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:18px}
-  .brand{display:flex;align-items:baseline;gap:12px}
-  .brand h1{font-family:"Syne",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;margin:0}
-  .brand h1 b{color:var(--phosphor)}
-  .brand .ver{color:var(--ink-faint);font-size:11px}
-  .tagline{color:var(--ink-dim);font-size:12px;max-width:430px;margin-top:4px}
+Lecture **honnête** de l'état batterie des appareils branchés (machine hôte, iPhone/iPad, Android).
+Le principe directeur : ne jamais inventer une donnée. Si un appareil n'expose pas une info,
+batcheck le dit clairement (`unavailable`) au lieu de bricoler une valeur fausse.
 
-  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  button{font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);padding:8px 14px;border-radius:7px;cursor:pointer;transition:.15s}
-  button:hover{border-color:var(--phosphor-deep)}
-  button:active{transform:translateY(1px)}
-  button.primary{background:rgba(94,243,140,.08);border-color:var(--phosphor-deep);color:var(--phosphor)}
-  .toggle{display:flex;align-items:center;gap:7px;color:var(--ink-dim);font-size:12px;user-select:none;cursor:pointer}
-  .toggle input{accent-color:var(--phosphor);width:14px;height:14px}
+C'est aussi la base d'un guide ouvert : montrer, appareil par appareil, **ce qu'un objet accepte
+de dire sur sa batterie, et ce qui reste une boîte noire**.
 
-  .statusbar{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink-dim);font-size:11.5px;margin:16px 2px 22px;align-items:center}
-  .statusbar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink-faint);margin-right:7px;vertical-align:middle}
-  .statusbar .dot.live{background:var(--phosphor);box-shadow:0 0 8px var(--phosphor)}
-  .statusbar b{color:var(--ink)}
+## Démarrage rapide (interface web)
 
-  /* ---- legende : ce qui est testable ---- */
-  .legend{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 0;margin-bottom:26px;overflow:hidden}
-  .legend summary{cursor:pointer;padding:13px 18px;font-family:"Syne",sans-serif;font-weight:600;font-size:13px;letter-spacing:.03em;color:var(--ink);list-style:none;display:flex;align-items:center;gap:10px}
-  .legend summary::-webkit-details-marker{display:none}
-  .legend summary .chev{color:var(--phosphor);transition:.2s transform}
-  .legend[open] summary .chev{transform:rotate(90deg)}
-  .legend .body{padding:4px 18px 18px}
-  .ltable{width:100%;border-collapse:collapse;font-size:12px}
-  .ltable th,.ltable td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
-  .ltable th{color:var(--ink-faint);font-weight:500;text-transform:uppercase;font-size:10px;letter-spacing:.06em}
-  .ltable td:first-child{color:var(--ink);white-space:nowrap}
-  .y{color:var(--phosphor)} .p{color:var(--amber)} .n{color:var(--ink-faint)}
-  .ltable td small{color:var(--ink-dim)}
+```bash
+cd batcheck
+./run.sh          # macOS / Linux   (ou : run.bat sur Windows)
+```
 
-  .section-title{font-family:"Syne",sans-serif;font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-dim);margin:34px 2px 14px;display:flex;align-items:center;gap:12px}
-  .section-title::after{content:"";flex:1;height:1px;background:var(--line)}
+Ça lance le serveur local et ouvre `http://127.0.0.1:8765` dans le navigateur.
+Aucune dépendance requise pour lire la machine hôte. Branche un iPhone/Android et
+clique sur **scanner**.
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+Pas envie des scripts ? `python server.py` puis ouvre l'URL à la main.
 
-  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;overflow:hidden;opacity:0;transform:translateY(8px);animation:rise .5s forwards}
-  @keyframes rise{to{opacity:1;transform:none}}
-  .card .head{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line-soft)}
-  .glyph{width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:15px;background:var(--panel);border:1px solid var(--line)}
-  .card h3{margin:0;font-size:14px;font-weight:700}
-  .kind{color:var(--ink-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
-  .id{color:var(--ink-faint);font-size:10px;padding:0 16px 12px;word-break:break-all;border-bottom:1px solid var(--line-soft)}
+### Pourquoi un serveur local et pas un site hébergé
 
-  .fields{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-soft)}
-  .f{background:var(--panel);padding:11px 14px;display:flex;flex-direction:column;gap:2px;min-height:54px}
-  .f .lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint)}
-  .f .val{font-size:18px;font-weight:500}
-  .f.on .val{color:var(--phosphor);text-shadow:0 0 18px rgba(94,243,140,.25)}
-  .f.on .lbl{color:var(--ink-dim)}
-  .f.off .val{color:var(--ink-faint);font-size:14px;opacity:.6}
-  .f .why{font-size:10px;color:var(--amber);opacity:.85;line-height:1.35;margin-top:1px}
-  .f .unit{font-size:11px;color:var(--ink-faint);margin-left:3px}
+Le navigateur n'a pas l'accès système pour parler usbmux (iPhone) ou adb (Android).
+C'est donc le backend Python, qui tourne sur ta machine, qui fait la lecture et la
+sert en JSON sur `/api/scan`. L'UI ne fait que l'afficher. Tu peux héberger la page
+seule quelque part, mais elle sera alors limitée à la lecture directe navigateur
+(batterie de la machine + niveau HID), pas les iPhone/Android.
 
-  /* carte boite noire compacte : appareil branche qui n'expose rien */
-  .blackbox{padding:16px;display:flex;gap:12px;align-items:flex-start;background:repeating-linear-gradient(135deg,var(--panel),var(--panel) 8px,#0c1016 8px,#0c1016 9px)}
-  .blackbox .bx-ico{font-size:18px;opacity:.5}
-  .blackbox .bx-t{font-size:12px;color:var(--ink-dim);line-height:1.5}
-  .blackbox .bx-t b{color:var(--ink)}
+## Installation des lectures avancées
 
-  .meta{padding:10px 16px;display:flex;flex-direction:column;gap:7px}
-  .note,.err{font-size:11px;line-height:1.45;display:flex;gap:8px;align-items:flex-start}
-  .note{color:var(--ink-dim)} .err{color:var(--red)}
-  .note .mk{color:var(--cyan)} .err .mk{color:var(--red)}
+```bash
+pip install -r requirements.txt   # pymobiledevice3 pour iOS
+# + adb (Android platform-tools) dans le PATH pour Android
+```
 
-  /* tuiles d'etat des modules : calmes, pas rouges */
-  .modrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-  .modtile{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start}
-  .modtile.err{border-left-color:var(--red)}
-  .modtile .mt-ico{font-size:16px;opacity:.8}
-  .modtile .mt-name{font-weight:700;font-size:12.5px;margin-bottom:3px}
-  .modtile .mt-msg{font-size:11px;color:var(--ink-dim);line-height:1.45}
+## Usage CLI (sans interface)
 
-  .browser-panel{background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:18px}
-  .browser-panel p{color:var(--ink-dim);font-size:12px;margin:0 0 14px}
-  .browser-panel .out{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
-  .chip{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-  .chip .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint)}
-  .chip .val{font-size:16px;color:var(--cyan);margin-top:2px}
+```bash
+python -m batcheck                # scan complet, tableau lisible
+python -m batcheck --json         # sortie JSON normalisée (pour brancher une UI)
+python -m batcheck --only host    # un seul module : host | ios | android
+python -m batcheck --deep         # iOS : tente cycles + vraie santé (lent, voir plus bas)
+```
 
-  .empty{color:var(--ink-dim);text-align:center;padding:30px 0;font-size:12.5px;line-height:1.6}
-  .empty code{color:var(--phosphor)}
-  .spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--phosphor);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  footer{margin-top:46px;color:var(--ink-faint);font-size:11px;border-top:1px solid var(--line);padding-top:16px;line-height:1.6}
-  a{color:var(--phosphor);text-decoration:none} a:hover{text-decoration:underline}
-  .hidden{display:none}
-</style>
-</head>
-<body>
-<div class="wrap">
+## Ce qui est réellement lisible (la réalité technique)
 
-  <header class="top">
-    <div>
-      <div class="brand"><h1>bat<b>check</b></h1><span class="ver">v0.1 · console</span></div>
-      <div class="tagline">Ce que chaque appareil branche accepte de dire sur sa batterie. Et ce qui reste une boite noire.</div>
-    </div>
-    <div class="controls">
-      <label class="toggle"><input type="checkbox" id="deep"> deep iOS <span style="color:var(--ink-faint)">(lent)</span></label>
-      <button id="rescan" class="primary">↻ scanner</button>
-    </div>
-  </header>
+| Appareil | Niveau | Cycles | Santé | Comment |
+|---|---|---|---|---|
+| Machine hôte (Mac) | oui | **oui** | oui | IOKit `AppleSmartBattery` via `ioreg` |
+| Machine hôte (Linux) | oui | si exposé | oui | `/sys/class/power_supply` |
+| Machine hôte (Windows) | oui | v2 | v2 | WMI ; cycles via `powercfg /batteryreport` (à parser) |
+| iPhone / iPad | oui | **--deep** | --deep | pymobiledevice3 : live + sysdiagnose |
+| Android | oui | selon constructeur | selon constructeur | adb : `dumpsys` + sysfs |
+| Batterie externe, chargeur, câble | non | non | non | rien n'est exposé via USB |
+| Écouteurs, souris, petits gadgets | parfois (%) | non | non | HID `Battery` quand présent |
 
-  <div class="statusbar" id="statusbar">
-    <span><span class="dot" id="livedot"></span><span id="st-state">en attente</span></span>
-    <span>OS hote : <b id="st-os">·</b></span>
-    <span>appareils lus : <b id="st-count">·</b></span>
-    <span id="st-time"></span>
-  </div>
+### Pourquoi ce n'est pas une web app
 
-  <!-- Legende permanente : explique ce qui est testable, meme sans rien branche -->
-  <details class="legend" open>
-    <summary><span class="chev">▸</span> Ce qui est testable (et ce qui ne l'est pas)</summary>
-    <div class="body">
-      <table class="ltable">
-        <tr><th>Appareil</th><th>Charge</th><th>Cycles</th><th>Sante</th><th>Comment</th></tr>
-        <tr><td>Cette machine</td><td class="y">oui</td><td class="y">oui*</td><td class="y">oui</td><td><small>*cycles sur Mac/Linux. Windows : capacite seulement pour l'instant</small></td></tr>
-        <tr><td>iPhone / iPad</td><td class="y">oui</td><td class="p">deep</td><td class="p">deep</td><td><small>live via USB ; cycles seulement avec l'option deep (sysdiagnose)</small></td></tr>
-        <tr><td>Android</td><td class="y">oui</td><td class="p">selon</td><td class="p">selon</td><td><small>depend du constructeur (Pixel souvent oui, Samsung non sans root)</small></td></tr>
-        <tr><td>Batterie externe, chargeur, cable</td><td class="n">non</td><td class="n">non</td><td class="n">non</td><td><small>rien n'est expose via USB, c'est une boite noire</small></td></tr>
-        <tr><td>Ecouteurs, souris, gadgets</td><td class="p">parfois</td><td class="n">non</td><td class="n">non</td><td><small>niveau via HID quand present, jamais les cycles</small></td></tr>
-      </table>
-      <p style="color:var(--ink-faint);font-size:11px;margin:12px 0 0">
-        <span class="y">vert</span> = lisible · <span class="p">ambre</span> = sous conditions · <span class="n">gris</span> = non exposable.
-        Les iPhone et Android demandent le backend local (le navigateur seul ne peut pas les lire).
-      </p>
-    </div>
-  </details>
+usbmux/lockdown (iOS) et adb (Android) ont besoin d'un accès système (libusb, pairing record,
+daemon adb). Un navigateur en WebHID/WebUSB ne pourra jamais lire un iPhone ni sortir un cycle
+count. D'où le choix d'un cœur Python en CLI. Une UI web viendra par-dessus, en lisant le JSON
+produit par `--json` (et pas l'USB en direct).
 
-  <!-- Appareils reellement detectes -->
-  <div id="devices-block">
-    <div class="section-title">Appareils detectes</div>
-    <div class="grid" id="grid"></div>
-    <div id="empty"></div>
-  </div>
+## Le cas iOS en détail
 
-  <!-- Etat des modules (calme) -->
-  <div id="modules-block" class="hidden">
-    <div class="section-title">Modules</div>
-    <div class="modrow" id="modrow"></div>
-  </div>
+Deux canaux, exactement comme coconutBattery :
 
-  <!-- Bonus navigateur -->
-  <div class="section-title">Lecture directe navigateur · bonus</div>
-  <div class="browser-panel">
-    <p>Le navigateur ne voit ni iPhone ni Android. Mais il peut lire la batterie de <b>cette machine</b> (si supporte) et le niveau de certains peripheriques HID (souris, casque). Limite, mais sans serveur.</p>
-    <div class="controls">
-      <button id="btn-host">lire batterie de la machine</button>
-      <button id="btn-hid">choisir un peripherique HID</button>
-    </div>
-    <div class="out" id="browser-out"></div>
-  </div>
+1. **Live** (rapide, `python -m batcheck`) : le diagnostic relay lit `IOPMPowerSource` dans
+   l'IORegistry du téléphone. Donne tension, courant, température, capacité instantanée, niveau.
+   **Limite connue** : depuis iOS 12.2, `FullChargeCapacity` renvoie souvent 100 et le cycle
+   count n'est pas exposé par ce canal. batcheck le signale au lieu de mentir.
 
-  <footer>
-    Servi en local par <code>server.py</code>. L'UI lit le JSON de <code>/api/scan</code> ; c'est le backend Python qui fait la lecture privilegiee (usbmux / adb / IOKit).
-    Detail appareil par appareil et feuille de route dans le <code>README</code>.
-  </footer>
-</div>
+2. **Deep** (`--deep`, lent) : récupère un sysdiagnose et parse le log `BatteryBDC`
+   (`BDC_Daily_*.csv`, champ `BatteryCycleCount`). C'est l'approche de
+   [3dnow/BatteryCycleiOS](https://github.com/3dnow/BatteryCycleiOS). Le pull + parsing est
+   stubé dans `modules/ios.py` (`_read_deep_battery`) : c'est le premier morceau à finir en v2.
 
-<script>
-const FIELDS = [
-  ["charge_percent","Charge","%"],["cycles","Cycles",""],
-  ["health_percent","Sante","%"],["capacity_now_mah","Capacite actuelle","mAh"],
-  ["design_capacity_mah","Capacite d'origine","mAh"],["voltage_mv","Tension","mV"],
-  ["current_ma","Courant","mA"],["temperature_c","Temperature","C"],
-  ["is_charging","En charge",""],
-];
-const GLYPHS = {phone_ios:"",phone_android:"🤖",host:"🖥",hid:"🖱",ups:"🔌",unknown:"❔",module_status:"…"};
-const GENERIC = "non expose par l'appareil"; // raison generique : on ne l'affiche pas en toutes lettres
+Prérequis iOS : téléphone déverrouillé + « Faire confiance à cet ordinateur » accepté.
+iOS ≥ 17 : certains services développeur réclament un tunnel (`pymobiledevice3 remote start-tunnel`).
 
-const $ = s => document.querySelector(s);
-const grid=$("#grid"), empty=$("#empty"), modrow=$("#modrow"), modBlock=$("#modules-block");
+## Le cas Android en détail
 
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function fmtVal(field,v){ return field==="is_charging" ? (v?"oui":"non") : v; }
+- `adb shell dumpsys battery` : niveau, tension, température, `charge counter` (mAh instantané),
+  état de charge. Quasi toujours dispo dès que le débogage USB est autorisé.
+- `cat /sys/class/power_supply/battery/cycle_count` et `charge_full` : cycles + capacité pleine,
+  **quand le constructeur les expose**. Samsung les restreint souvent (root requis), Pixel récents
+  les donnent plus volontiers. Sinon : estimation façon AccuBattery (au programme v2).
 
-/* carte pleine : l'appareil expose au moins un champ */
-function fullCard(d,idx){
-  const exposed=new Set(d.exposed||[]);
-  const card=document.createElement("div");
-  card.className="card"; card.style.animationDelay=(idx*55)+"ms";
-  card.innerHTML=`
-    <div class="head">
-      <div class="glyph">${GLYPHS[d.kind]||GLYPHS.unknown}</div>
-      <div><h3>${esc(d.name)}</h3><div class="kind">${esc(d.kind)} · ${esc(d.transport)}</div></div>
-    </div>
-    <div class="id">${esc(d.device_id)}</div>
-    <div class="fields"></div>
-    <div class="meta"></div>`;
-  const fbox=card.querySelector(".fields");
-  for(const [key,label,unit] of FIELDS){
-    const on=exposed.has(key);
-    const f=document.createElement("div");
-    f.className="f "+(on?"on":"off");
-    if(on){
-      f.innerHTML=`<div class="lbl">${label}</div><div class="val">${esc(fmtVal(key,d[key]))}${unit?`<span class="unit">${unit}</span>`:""}</div>`;
-    }else{
-      const why=(d.unavailable&&d.unavailable[key])||"";
-      // On n'affiche la raison QUE si elle est specifique et interessante.
-      const showWhy = why && why!==GENERIC;
-      f.innerHTML=`<div class="lbl">${label}</div><div class="val">n/a</div>${showWhy?`<div class="why">${esc(why)}</div>`:""}`;
-    }
-    fbox.appendChild(f);
-  }
-  const meta=card.querySelector(".meta");
-  (d.notes||[]).forEach(n=>meta.insertAdjacentHTML("beforeend",`<div class="note"><span class="mk">›</span><span>${esc(n)}</span></div>`));
-  (d.errors||[]).forEach(e=>meta.insertAdjacentHTML("beforeend",`<div class="err"><span class="mk">!</span><span>${esc(e)}</span></div>`));
-  if(!meta.children.length) meta.remove();
-  return card;
-}
+## Architecture
 
-/* carte compacte : appareil branche mais qui n'expose rien (boite noire) */
-function blackBoxCard(d,idx){
-  const card=document.createElement("div");
-  card.className="card"; card.style.animationDelay=(idx*55)+"ms";
-  const note=(d.notes&&d.notes[0])|| (d.errors&&d.errors[0]) || "Cet appareil n'expose aucune donnee batterie via USB.";
-  card.innerHTML=`
-    <div class="head">
-      <div class="glyph">${GLYPHS[d.kind]||GLYPHS.unknown}</div>
-      <div><h3>${esc(d.name)}</h3><div class="kind">${esc(d.kind)} · ${esc(d.transport)}</div></div>
-    </div>
-    <div class="blackbox">
-      <div class="bx-ico">▦</div>
-      <div class="bx-t"><b>Boite noire.</b> ${esc(note)}</div>
-    </div>`;
-  return card;
-}
+```
+batcheck/
+  server.py          # serveur local (stdlib) : /api/scan + sert l'UI
+  run.sh / run.bat   # lanceurs (ouvrent le navigateur)
+  requirements.txt   # deps optionnelles (pymobiledevice3)
+  web/
+    index.html       # console de diagnostic (consomme /api/scan)
+  batcheck/
+    core.py          # schéma DeviceReading + ScanResult, orchestration isolée
+    __main__.py      # CLI (tableau + JSON)
+    modules/
+      host.py        # macOS / Linux / Windows
+      ios.py         # pymobiledevice3 (live + deep)
+      android.py     # adb (dumpsys + sysfs)
+```
 
-/* tuile calme pour l'etat d'un module (iOS/Android pas dispo) */
-function moduleTile(d){
-  const isErr=(d.errors&&d.errors.length)>0;
-  const msg=(d.errors&&d.errors[0])||(d.notes&&d.notes[0])||"indisponible";
-  const t=document.createElement("div");
-  t.className="modtile"+(isErr?" err":"");
-  t.innerHTML=`<div class="mt-ico">${isErr?"!":"○"}</div>
-    <div><div class="mt-name">${esc(d.name)}</div><div class="mt-msg">${esc(msg)}</div></div>`;
-  return t;
-}
+Chaque module expose une seule fonction `read()` qui renvoie une liste de `DeviceReading`.
+Pour ajouter un appareil (UPS HID, périphérique HID...), il suffit d'écrire un nouveau module
+dans `modules/` et de l'ajouter dans `core.scan()`. Plug-and-play.
 
-function render(data){
-  grid.innerHTML=""; empty.innerHTML=""; modrow.innerHTML="";
-  $("#st-os").textContent=data.host_os||"·";
-  $("#st-time").textContent=data.scanned_at?("scan "+new Date(data.scanned_at).toLocaleTimeString()):"";
-  $("#livedot").classList.add("live"); $("#st-state").textContent="connecte";
+Le schéma `DeviceReading` garde trois listes clés pour l'honnêteté :
+`exposed` (ce qu'on a su lire), `unavailable` (cherché mais non exposable, avec la raison),
+`notes` (limites et avertissements). C'est ce contraste qui fait le sel du guide.
 
-  const all=data.devices||[];
-  const statuses=all.filter(d=>d.kind==="module_status");
-  const real=all.filter(d=>d.kind!=="module_status");
+## Feuille de route
 
-  $("#st-count").textContent=real.length;
+- [ ] iOS deep : finir le pull sysdiagnose + parsing CSV `BatteryBDC`
+- [ ] Windows : parser `powercfg /batteryreport` pour cycles + santé
+- [ ] Module HID : lire le `Battery` usage page des périphériques (souris, casque, UPS)
+- [ ] Android : estimation de santé façon AccuBattery quand sysfs est muet
+- [ ] UI web qui consomme le JSON de `--json`
 
-  // appareils reels
-  if(!real.length){
-    empty.innerHTML=`<div class="empty">Aucun appareil avec batterie lu pour l'instant.<br>
-      Branche un iPhone / Android (et autorise l'acces), ou lance batcheck sur un portable.<br>
-      La machine fixe qui sert l'app n'a souvent pas de batterie, c'est normal.</div>`;
-  }else{
-    real.forEach((d,i)=>{
-      const hasData=(d.exposed&&d.exposed.length)>0;
-      grid.appendChild(hasData?fullCard(d,i):blackBoxCard(d,i));
-    });
-  }
+## Note licences
 
-  // modules (iOS/Android) + erreurs fatales eventuelles, en calme
-  const me=data.module_errors||{};
-  const tiles=[];
-  statuses.forEach(d=>tiles.push(moduleTile(d)));
-  Object.entries(me).forEach(([mod,err])=>{
-    const fake={name:mod,errors:[err],notes:[]};
-    tiles.push(moduleTile(fake));
-  });
-  if(tiles.length){ modBlock.classList.remove("hidden"); tiles.forEach(t=>modrow.appendChild(t)); }
-  else modBlock.classList.add("hidden");
-}
-
-async function runScan(){
-  const deep=$("#deep").checked;
-  $("#st-state").textContent="scan en cours"; $("#livedot").classList.remove("live");
-  grid.innerHTML=`<div class="empty"><span class="spinner"></span>lecture des appareils</div>`;
-  empty.innerHTML=""; modBlock.classList.add("hidden");
-  try{
-    const r=await fetch("/api/scan"+(deep?"?deep=1":""));
-    const data=await r.json();
-    if(data.error) throw new Error(data.error);
-    render(data);
-  }catch(e){
-    grid.innerHTML="";
-    empty.innerHTML=`<div class="empty">Impossible de joindre le serveur local.<br>
-      Lance <code>python server.py</code> puis recharge la page.<br>
-      <span style="color:var(--red)">${esc(e.message)}</span></div>`;
-    $("#st-state").textContent="hors ligne";
-  }
-}
-
-/* ---- bonus navigateur ---- */
-const bout=$("#browser-out");
-function chip(label,val,color){bout.insertAdjacentHTML("beforeend",`<div class="chip"><div class="lbl">${esc(label)}</div><div class="val"${color?` style="color:${color}"`:""}>${esc(val)}</div></div>`);}
-$("#btn-host").addEventListener("click",async()=>{
-  bout.innerHTML="";
-  if(!("getBattery" in navigator)){chip("Battery API","non supportee","var(--amber)");chip("note","retiree de Firefox/Safari","var(--ink-dim)");return;}
-  try{const b=await navigator.getBattery();chip("Charge",Math.round(b.level*100)+" %");chip("En charge",b.charging?"oui":"non");chip("Cycles","non expose","var(--amber)");}
-  catch(e){chip("erreur",e.message,"var(--red)");}
-});
-$("#btn-hid").addEventListener("click",async()=>{
-  bout.innerHTML="";
-  if(!("hid" in navigator)){chip("WebHID","non supporte (Chrome/Edge)","var(--amber)");return;}
-  try{
-    const devices=await navigator.hid.requestDevice({filters:[]});
-    if(!devices.length){chip("HID","aucun choisi","var(--ink-dim)");return;}
-    const d=devices[0];chip("Peripherique",d.productName||"inconnu");
-    const hasBat=(d.collections||[]).some(c=>(c.inputReports||[]).some(r=>(r.items||[]).some(it=>(it.usages||[]).some(u=>(u&0xffff)===0x85||(u>>>16)===0x85))));
-    chip("Champ batterie HID",hasBat?"present":"absent",hasBat?"var(--phosphor)":"var(--amber)");
-    chip("Cycles","jamais via HID","var(--ink-dim)");
-  }catch(e){chip("HID",e.message,"var(--ink-dim)");}
-});
-
-$("#rescan").addEventListener("click",runScan);
-runScan();
-</script>
-</body>
-</html>
+Vérifier les conditions de `pymobiledevice3` et des outils référencés avant redistribution.
+Ce dépôt n'embarque pas leur code, il les appelle.
