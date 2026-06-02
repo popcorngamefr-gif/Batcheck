@@ -328,18 +328,25 @@ async function runScan(){
     $("#st-count").textContent="0";
     $("#st-os").textContent="navigateur";
     $("#livedot").classList.remove("live");
-    empty.innerHTML=`<div class="empty" style="text-align:left;max-width:620px;margin:0 auto">
+    empty.innerHTML=`<div class="empty" style="text-align:left;max-width:640px;margin:0 auto">
       <div style="font-family:'Syne',sans-serif;font-weight:600;color:var(--ink);font-size:14px;margin-bottom:10px">
         🛰 Mode vitrine — pas de backend local ici</div>
       <p style="margin:0 0 12px">Cette page est hebergee : elle n'a aucun appareil branche en USB.
-      Lire un iPhone, un Android ou les cycles d'une batterie demande le backend qui tourne
+      Lire un iPhone, un Android ou les cycles d'une batterie demande le client qui tourne
       <b>sur ta machine</b> (acces systeme requis, impossible depuis un site distant).</p>
-      <p style="margin:0 0 16px">Pour scanner tes propres appareils, en deux commandes :</p>
-      <pre style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;color:var(--phosphor);font-size:12px;overflow:auto;text-align:left">git clone ${esc(REPO)}.git
-cd Batcheck &amp;&amp; python server.py</pre>
-      <p style="margin:14px 0 0">
-        <a href="${esc(REPO)}" target="_blank" rel="noopener">→ voir le repo sur GitHub</a><br>
-        <span style="color:var(--ink-faint)">En attendant, le bonus navigateur ci-dessous fonctionne ici (batterie de ta machine, peripheriques HID).</span></p>
+      <p style="margin:0 0 14px"><b>Telecharge le client</b> (rien a installer, double-clic) :</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <a href="${esc(REPO)}/releases/latest" target="_blank" rel="noopener"
+           style="display:inline-block;background:rgba(94,243,140,.08);border:1px solid var(--phosphor-deep);color:var(--phosphor);padding:9px 16px;border-radius:8px">⬇ Windows (.exe)</a>
+        <a href="${esc(REPO)}/releases/latest" target="_blank" rel="noopener"
+           style="display:inline-block;background:rgba(94,243,140,.08);border:1px solid var(--phosphor-deep);color:var(--phosphor);padding:9px 16px;border-radius:8px">⬇ macOS (.dmg)</a>
+        <a href="${esc(REPO)}/releases/latest" target="_blank" rel="noopener"
+           style="display:inline-block;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:9px 16px;border-radius:8px">⬇ Linux</a>
+      </div>
+      <p style="margin:0;color:var(--ink-faint);font-size:11px">
+        Tu lances, ta console s'ouvre, ca scanne tes appareils. Android demande en plus
+        <code>adb</code> installe. Code source : <a href="${esc(REPO)}" target="_blank" rel="noopener">GitHub</a>.<br>
+        En attendant, le bonus navigateur ci-dessous fonctionne deja ici (batterie de cette machine, peripheriques HID).</p>
     </div>`;
   }
 }

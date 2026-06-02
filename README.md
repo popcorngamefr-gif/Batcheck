@@ -7,6 +7,30 @@ batcheck le dit clairement (`unavailable`) au lieu de bricoler une valeur fausse
 C'est aussi la base d'un guide ouvert : montrer, appareil par appareil, **ce qu'un objet accepte
 de dire sur sa batterie, et ce qui reste une boîte noire**.
 
+## Client installable (le plus simple pour les utilisateurs)
+
+Pas envie de toucher à Python ? Télécharge le client autonome dans les
+[Releases](https://github.com/popcorngamefr-gif/Batcheck/releases/latest) :
+
+- **Windows** : `batcheck-windows.exe` (double-clic)
+- **macOS** : `batcheck-macos.dmg` (glisser dans Applications ; non signé, donc au
+  premier lancement clic droit → Ouvrir pour passer Gatekeeper)
+- **Linux** : `batcheck-linux` (`chmod +x batcheck-linux && ./batcheck-linux`)
+
+Le client embarque tout, y compris pymobiledevice3 : les iPhone marchent dès le
+lancement. Seul Android demande en plus `adb` (binaire Google séparé, non
+embarquable). Au lancement, la console s'ouvre toute seule dans le navigateur.
+
+### Compiler soi-même
+
+```bash
+./build.sh      # macOS / Linux  (produit dist/batcheck, + .dmg sur Mac)
+build.bat       # Windows        (produit dist/batcheck.exe)
+```
+
+Les binaires des trois OS sont aussi construits automatiquement par GitHub Actions
+(`.github/workflows/build.yml`) à chaque tag `v*` poussé, et attachés à la Release.
+
 ## Démarrage rapide (interface web)
 
 ```bash

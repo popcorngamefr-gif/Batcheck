@@ -20,17 +20,32 @@ from __future__ import annotations
 import json
 import os
 import sys
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-# On s'assure que le package batcheck est importable depuis ce dossier.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+def _base_dir() -> str:
+    """
+    Dossier racine des ressources.
+    - En mode "gele" (PyInstaller), les fichiers sont extraits dans sys._MEIPASS.
+    - En mode normal, c'est le dossier de ce fichier.
+    """
+    if getattr(sys, "frozen", False):
+        return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+# En mode normal on s'assure que le package batcheck est importable.
+# En mode gele, il est deja embarque dans le binaire.
+if not getattr(sys, "frozen", False):
+    sys.path.insert(0, _base_dir())
 
 from batcheck.core import scan  # noqa: E402
 
 HOST = "127.0.0.1"
 PORT = 8765
-WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+WEB_DIR = os.path.join(_base_dir(), "web")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -97,11 +112,32 @@ def _guess_type(path: str) -> str:
     return "application/octet-stream"
 
 
-def main():
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+def main(open_browser: bool = False):
+    # Si le port est deja pris, on en cherche un libre (cas : double lancement).
+    global PORT
+    server = None
+    for candidate in range(PORT, PORT + 10):
+        try:
+            server = ThreadingHTTPServer((HOST, candidate), Handler)
+            PORT = candidate
+            break
+        except OSError:
+            continue
+    if server is None:
+        print("  Impossible d'ouvrir un port local entre "
+              f"{PORT} et {PORT + 9}.")
+        return
+
     url = f"http://{HOST}:{PORT}"
-    print(f"\n  batcheck en ligne  →  {url}")
+    print(f"\n  batcheck en ligne  ->  {url}")
     print("  (Ctrl+C pour arreter)\n")
+
+    if open_browser:
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass  # pas de navigateur dispo : l'URL est affichee, c'est suffisant
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
